@@ -1,5 +1,18 @@
-# VPC creation... default network ACL and Route table also created... already associated with existing DHCP set
-# Exists across all AZ in a region
+data "aws_caller_identity" "current" {}
+
+locals {
+    account_id = data.aws_caller_identity.current.account_id
+}
+
+output "account_id" {
+  value = local.account_id
+}
+
+/*
+VPC creation... default network ACL and Route table also created... already associated with existing DHCP set
+Exists across all AZ in a region
+*/
+
 resource "aws_vpc" "main" {
   cidr_block = "10.0.0.0/16"
 
@@ -74,5 +87,24 @@ resource "aws_nat_gateway" "nat" {
 
   tags = {
     Name = "NAT-${count.index}"
+  }
+}
+
+resource "aws_cloudwatch_log_group" "vpc-main-flow-logs" {
+  name              = "FlowLogsGroup"
+  retention_in_days = 30  // Optional: Set the retention period for log events, in days
+}
+
+resource "aws_flow_log" "vpc_flow_log" {
+  depends_on = [aws_vpc.main]
+  vpc_id = aws_vpc.main.id
+  log_destination = "arn:aws:logs:eu-west-1:${local.account_id}:log-group:FlowLogsGroup"
+  traffic_type ="ALL"
+
+  log_format = "json"
+  max_aggregation_interval = 60
+
+  tags = {
+    Name = "vpc-main-flow-log"
   }
 }
